@@ -20,7 +20,7 @@ jobs:
 
     - name: "Test 1: Run container"
       run: |
-        docker run -d --name test-container -p 7080:7080 \
+        docker run -d --name test-container -p 7080:7080 -p 8088:8088 \
           -e MARIADB_ROOT_PASSWORD=secret \
           -e MARIADB_DATABASE=wordpress \
           -e MARIADB_USER=wp_user \
@@ -35,18 +35,29 @@ jobs:
       if: failure()
       run: docker logs test-container
 
-    - name: "Test 2: Check OpenLiteSpeed & WordPress (Port 7080)"
+    - name: "Test 2: Check OLS Admin Console (Port 7080)"
       run: |
-        # Check standard access (should load WP install page or 302 redirect)
+        # Check OLS admin console access
         HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:7080/)
-        echo "HTTP Response: $HTTP_CODE"
+        echo "OLS Admin Response: $HTTP_CODE"
         if [[ "$HTTP_CODE" -ne 200 ]] && [[ "$HTTP_CODE" -ne 301 ]] && [[ "$HTTP_CODE" -ne 302 ]]; then
-          echo "FAIL: Website not accessible (Code $HTTP_CODE)"
+          echo "FAIL: OLS Admin not accessible (Code $HTTP_CODE)"
           exit 1
         fi
-        echo "PASS: OpenLiteSpeed is running"
+        echo "PASS: OpenLiteSpeed Admin is running"
 
-    - name: "Test 3: Check MariaDB Connectivity"
+    - name: "Test 3: Check WordPress (Port 8088)"
+      run: |
+        # Check WordPress on port 8088
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8088/)
+        echo "WordPress Response: $HTTP_CODE"
+        if [[ "$HTTP_CODE" -ne 200 ]] && [[ "$HTTP_CODE" -ne 301 ]] && [[ "$HTTP_CODE" -ne 302 ]]; then
+          echo "FAIL: WordPress not accessible (Code $HTTP_CODE)"
+          exit 1
+        fi
+        echo "PASS: WordPress is accessible"
+
+    - name: "Test 4: Check MariaDB Connectivity"
       run: |
         # Use docker exec to check DB inside
         docker exec test-container mariadb-admin -u root -psecret ping
@@ -66,7 +77,7 @@ jobs:
            exit 1
         fi
 
-    - name: "Test 4: Check WordPress Deployment"
+    - name: "Test 5: Check WordPress Deployment"
       run: |
         # Check if wp-settings.php exists in webroot
         docker exec test-container ls /var/www/vhosts/localhost/html/wp-settings.php
@@ -77,11 +88,10 @@ jobs:
            exit 1
         fi
 
-    - name: "Test 5: Check phpMyAdmin Deployment"
+    - name: "Test 6: Check phpMyAdmin Deployment"
       run: |
-        # Check HTTP access to PMA
-        # Note: OLS might return 301/302 for trailing slash, so we check carefully or curl -L
-        HTTP_CODE=$(curl -s -L -o /dev/null -w "%{http_code}" http://localhost:7080/phpmyadmin/)
+        # Check HTTP access to PMA on port 8088
+        HTTP_CODE=$(curl -s -L -o /dev/null -w "%{http_code}" http://localhost:8088/phpmyadmin/)
         echo "PMA Response: $HTTP_CODE"
         if [[ "$HTTP_CODE" -ne 200 ]]; then
            echo "FAIL: phpMyAdmin inaccessible (Code $HTTP_CODE)"
