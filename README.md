@@ -12,6 +12,7 @@ A production-ready, all-in-one Docker image combining **OpenLiteSpeed**, **Maria
 - 🔧 **phpMyAdmin** - Web-based database management
 - 🔒 **Secure by Default** - Random root password generation if not specified
 - ⚙️ **Configurable** - Customize versions at build time
+- 🎯 **Zero-Config WordPress** - Auto-generates wp-config.php with your database credentials
 
 ## Quick Start
 
@@ -92,7 +93,7 @@ docker run -d \
   -v wordpress_db:/var/lib/mysql \
   -v wordpress_html:/var/www/vhosts/localhost/html \
   -e MARIADB_ROOT_PASSWORD=secret \
-  ghcr.io/vireakvibol/mariadb-docker:main
+  ghcr.io/vireakvibol/wordpress-stack:main
 ```
 
 ## Security Considerations
