@@ -108,15 +108,10 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract branch name
-      if: github.event_name == 'push'
-      id: branch
-      run: echo "name=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-
     - name: Tag and Push to GHCR
       if: github.event_name == 'push'
       run: |
-        IMAGE_NAME=ghcr.io/${{ github.repository }}:${{ steps.branch.outputs.name }}
+        IMAGE_NAME=ghcr.io/${{ github.repository }}:${{ github.ref_name }}
         docker tag myols-db:test $IMAGE_NAME
         docker push $IMAGE_NAME
         echo "Pushed image: $IMAGE_NAME"
