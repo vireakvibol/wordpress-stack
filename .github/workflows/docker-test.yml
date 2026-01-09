@@ -35,7 +35,7 @@ jobs:
       if: failure()
       run: docker logs test-container
 
-    - name: Test 2: Check OpenLiteSpeed & WordPress (Port 7080)
+    - name: "Test 2: Check OpenLiteSpeed & WordPress (Port 7080)"
       run: |
         # Check standard access (should load WP install page or 302 redirect)
         HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:7080/)
