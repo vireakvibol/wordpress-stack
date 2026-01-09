@@ -18,7 +18,7 @@ jobs:
     - name: Build Docker image
       run: docker build -t myols-db:test .
 
-    - name: Run container
+    - name: "Test 1: Run container"
       run: |
         docker run -d --name test-container -p 7080:7080 \
           -e MARIADB_ROOT_PASSWORD=secret \
