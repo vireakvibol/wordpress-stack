@@ -1,0 +1,90 @@
+name: Build and Test Docker Image
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Docker image
+      run: docker build -t myols-db:test .
+
+    - name: Run container
+      run: |
+        docker run -d --name test-container -p 7080:7080 \
+          -e MARIADB_ROOT_PASSWORD=secret \
+          -e MARIADB_DATABASE=wordpress \
+          -e MARIADB_USER=wp_user \
+          -e MARIADB_PASSWORD=wp_pass \
+          myols-db:test
+        
+        # Wait for initialization (MariaDB start, WP/PMA copy)
+        echo "Waiting for container initialization..."
+        sleep 30
+
+    - name: Inspect container logs (if failed)
+      if: failure()
+      run: docker logs test-container
+
+    - name: Test 2: Check OpenLiteSpeed & WordPress (Port 7080)
+      run: |
+        # Check standard access (should load WP install page or 302 redirect)
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:7080/)
+        echo "HTTP Response: $HTTP_CODE"
+        if [[ "$HTTP_CODE" -ne 200 ]] && [[ "$HTTP_CODE" -ne 302 ]]; then
+          echo "FAIL: Website not accessible (Code $HTTP_CODE)"
+          exit 1
+        fi
+        echo "PASS: OpenLiteSpeed is running"
+
+    - name: Test 3: Check MariaDB Connectivity
+      run: |
+        # Use docker exec to check DB inside
+        docker exec test-container mariadb-admin -u root -psecret ping
+        if [ $? -eq 0 ]; then
+          echo "PASS: MariaDB is responding"
+        else
+          echo "FAIL: MariaDB ping failed"
+          exit 1
+        fi
+        
+        # Check explicit user creation
+        docker exec test-container mariadb -u wp_user -pwp_pass -e "SELECT CURRENT_USER();"
+        if [ $? -eq 0 ]; then
+           echo "PASS: Custom database user works"
+        else
+           echo "FAIL: Custom database user login failed"
+           exit 1
+        fi
+
+    - name: Test 4: Check WordPress Deployment
+      run: |
+        # Check if wp-settings.php exists in webroot
+        docker exec test-container ls /var/www/vhosts/localhost/html/wp-settings.php
+        if [ $? -eq 0 ]; then
+           echo "PASS: WordPress files found"
+        else
+           echo "FAIL: WordPress missing from /var/www/vhosts/localhost/html/"
+           exit 1
+        fi
+
+    - name: Test 5: Check phpMyAdmin Deployment
+      run: |
+        # Check HTTP access to PMA
+        # Note: OLS might return 301/302 for trailing slash, so we check carefully or curl -L
+        HTTP_CODE=$(curl -s -L -o /dev/null -w "%{http_code}" http://localhost:7080/phpmyadmin/)
+        echo "PMA Response: $HTTP_CODE"
+        if [[ "$HTTP_CODE" -ne 200 ]]; then
+           echo "FAIL: phpMyAdmin inaccessible (Code $HTTP_CODE)"
+           exit 1
+        fi
+        echo "PASS: phpMyAdmin is accessible"

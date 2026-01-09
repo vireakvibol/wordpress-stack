@@ -1,8 +1,18 @@
+# Arguments for build versions
+ARG MARIADB_VERSION=11.8
+ARG OLS_VERSION=1.8.4-lsphp84
+ARG PHPMYADMIN_VERSION=5.2.1
+ARG WORDPRESS_VERSION=latest
+
 # Stage 1: Source binaries
-FROM mariadb:11.8 AS source
+FROM mariadb:${MARIADB_VERSION} AS source
 
 # Stage 2: Final OLS image
-FROM litespeedtech/openlitespeed:1.8.4-lsphp84
+FROM litespeedtech/openlitespeed:${OLS_VERSION}
+
+# Re-declare ARGs needed in this stage
+ARG PHPMYADMIN_VERSION
+ARG WORDPRESS_VERSION
 
 # Install runtime dependencies for MariaDB
 # Reuse the same list as our previous Ubuntu 24.04 build
@@ -37,9 +47,9 @@ RUN mkdir -p /var/lib/mysql /run/mysqld \
 
 # Install phpMyAdmin to /usr/src (will be copied to webroot at runtime)
 RUN apt-get update && apt-get install -y wget unzip \
-    && wget https://files.phpmyadmin.net/phpMyAdmin/5.2.1/phpMyAdmin-5.2.1-all-languages.zip -O /tmp/phpmyadmin.zip \
+    && wget https://files.phpmyadmin.net/phpMyAdmin/${PHPMYADMIN_VERSION}/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages.zip -O /tmp/phpmyadmin.zip \
     && unzip /tmp/phpmyadmin.zip -d /usr/src/ \
-    && mv /usr/src/phpMyAdmin-5.2.1-all-languages /usr/src/phpmyadmin \
+    && mv /usr/src/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages /usr/src/phpmyadmin \
     && rm /tmp/phpmyadmin.zip \
     && apt-get remove -y wget unzip \
     && apt-get autoremove -y \
@@ -47,7 +57,11 @@ RUN apt-get update && apt-get install -y wget unzip \
 
 # Install WordPress to /usr/src (will be copied to webroot at runtime)
 RUN apt-get update && apt-get install -y wget unzip \
-    && wget https://wordpress.org/latest.zip -O /tmp/wordpress.zip \
+    && if [ "$WORDPRESS_VERSION" = "latest" ]; then \
+         wget https://wordpress.org/latest.zip -O /tmp/wordpress.zip; \
+       else \
+         wget https://wordpress.org/wordpress-${WORDPRESS_VERSION}.zip -O /tmp/wordpress.zip; \
+       fi \
     && unzip /tmp/wordpress.zip -d /usr/src/ \
     && rm /tmp/wordpress.zip \
     && apt-get remove -y wget unzip \
