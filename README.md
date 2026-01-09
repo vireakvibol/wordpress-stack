@@ -55,14 +55,9 @@ After starting the container:
 
 ### WordPress Setup
 
-When accessing WordPress for the first time, use these database settings:
+When you provide `MARIADB_DATABASE`, `MARIADB_USER`, and `MARIADB_PASSWORD` environment variables, WordPress is **automatically configured** with the database credentials. On first access, you'll skip directly to creating your WordPress admin account!
 
-| Setting | Value |
-|---------|-------|
-| Database Name | Value of `MARIADB_DATABASE` |
-| Username | Value of `MARIADB_USER` |
-| Password | Value of `MARIADB_PASSWORD` |
-| Database Host | `localhost` |
+> **Tip:** No manual database configuration needed - just set the environment variables and you're ready to go.
 
 ## Custom Builds
 

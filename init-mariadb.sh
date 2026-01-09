@@ -41,15 +41,16 @@ if [ ! -f "$WP_CONFIG" ] && [ -f "$WP_CONFIG_SAMPLE" ] && [ -n "$MARIADB_DATABAS
     sed -i "s/password_here/$DB_PASSWORD/" "$WP_CONFIG"
     sed -i "s/localhost/$DB_HOST/" "$WP_CONFIG"
     
-    # Generate unique keys and salts
-    SALT=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/ 2>/dev/null || openssl rand -base64 48)
-    if echo "$SALT" | grep -q "define"; then
-        # Got proper salt from WordPress API, replace the placeholder lines
-        sed -i "/define( 'AUTH_KEY'/,/define( 'NONCE_SALT'/d" "$WP_CONFIG"
-        # Insert salts before the "stop editing" comment
-        sed -i "/stop editing/i\\
-$SALT" "$WP_CONFIG"
-    fi
+    # Generate unique keys and salts using openssl (hex to avoid special chars)
+    generate_salt() {
+        openssl rand -hex 32
+    }
+    
+    # Replace each placeholder salt with a unique random value
+    for i in 1 2 3 4 5 6 7 8; do
+        SALT=$(generate_salt)
+        sed -i "0,/put your unique phrase here/s/put your unique phrase here/$SALT/" "$WP_CONFIG"
+    done
     
     # Set correct ownership
     chown 994:994 "$WP_CONFIG"
