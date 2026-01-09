@@ -23,7 +23,7 @@ docker run -d \
   -e MARIADB_DATABASE=wordpress \
   -e MARIADB_USER=wp_user \
   -e MARIADB_PASSWORD=wp_password \
-  ghcr.io/vireakvibol/mariadb-docker:main
+  ghcr.io/vireakvibol/wordpress-stack:main
 ```
 
 ## Ports
