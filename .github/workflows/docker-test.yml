@@ -88,7 +88,27 @@ jobs:
            exit 1
         fi
 
-    - name: "Test 6: Check phpMyAdmin Deployment"
+    - name: "Test 6: Check wp-config.php Auto-Configuration"
+      run: |
+        # Check if wp-config.php exists
+        docker exec test-container ls /var/www/vhosts/localhost/html/wp-config.php
+        if [ $? -eq 0 ]; then
+           echo "PASS: wp-config.php found"
+        else
+           echo "FAIL: wp-config.php not created"
+           exit 1
+        fi
+        
+        # Check if database name is configured correctly
+        docker exec test-container grep -q "wordpress" /var/www/vhosts/localhost/html/wp-config.php
+        if [ $? -eq 0 ]; then
+           echo "PASS: Database name configured in wp-config.php"
+        else
+           echo "FAIL: Database name not found in wp-config.php"
+           exit 1
+        fi
+
+    - name: "Test 7: Check phpMyAdmin Deployment"
       run: |
         # Check HTTP access to PMA on port 80
         HTTP_CODE=$(curl -s -L -o /dev/null -w "%{http_code}" http://localhost:80/phpmyadmin/)

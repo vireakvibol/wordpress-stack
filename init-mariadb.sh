@@ -19,6 +19,44 @@ if [ ! -f "/var/www/vhosts/localhost/html/wp-settings.php" ] && [ -d "/usr/src/w
     chown -R 994:994 /var/www/vhosts/localhost/html/
 fi
 
+# Configure wp-config.php if database credentials are provided
+WP_CONFIG="/var/www/vhosts/localhost/html/wp-config.php"
+WP_CONFIG_SAMPLE="/var/www/vhosts/localhost/html/wp-config-sample.php"
+
+if [ ! -f "$WP_CONFIG" ] && [ -f "$WP_CONFIG_SAMPLE" ] && [ -n "$MARIADB_DATABASE" ]; then
+    echo "Configuring WordPress wp-config.php..."
+    
+    # Determine database credentials
+    DB_NAME="${MARIADB_DATABASE}"
+    DB_USER="${MARIADB_USER:-root}"
+    DB_PASSWORD="${MARIADB_PASSWORD:-$MARIADB_ROOT_PASSWORD}"
+    DB_HOST="localhost"
+    
+    # Copy sample config
+    cp "$WP_CONFIG_SAMPLE" "$WP_CONFIG"
+    
+    # Replace database settings
+    sed -i "s/database_name_here/$DB_NAME/" "$WP_CONFIG"
+    sed -i "s/username_here/$DB_USER/" "$WP_CONFIG"
+    sed -i "s/password_here/$DB_PASSWORD/" "$WP_CONFIG"
+    sed -i "s/localhost/$DB_HOST/" "$WP_CONFIG"
+    
+    # Generate unique keys and salts
+    SALT=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/ 2>/dev/null || openssl rand -base64 48)
+    if echo "$SALT" | grep -q "define"; then
+        # Got proper salt from WordPress API, replace the placeholder lines
+        sed -i "/define( 'AUTH_KEY'/,/define( 'NONCE_SALT'/d" "$WP_CONFIG"
+        # Insert salts before the "stop editing" comment
+        sed -i "/stop editing/i\\
+$SALT" "$WP_CONFIG"
+    fi
+    
+    # Set correct ownership
+    chown 994:994 "$WP_CONFIG"
+    
+    echo "WordPress configured with database: $DB_NAME, user: $DB_USER"
+fi
+
 # Check if database needs initialization
 if [ ! -d "$DATADIR/mysql" ]; then
     echo "Initializing MariaDB..."
