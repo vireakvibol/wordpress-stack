@@ -1,82 +1,73 @@
 # Arguments for build versions
 ARG MARIADB_VERSION=11.8
-ARG OLS_VERSION=1.8.4-lsphp84
+
+FROM mariadb:${MARIADB_VERSION}
+
+# Re-declare ARGs after FROM
+ARG LSPHP_VERSION=84
 ARG PHPMYADMIN_VERSION=5.2.1
 ARG WORDPRESS_VERSION=latest
 
-# Stage 1: Source binaries
-FROM mariadb:${MARIADB_VERSION} AS source
-
-# Stage 2: Final OLS image
-FROM litespeedtech/openlitespeed:${OLS_VERSION}
-
-# Re-declare ARGs needed in this stage
-ARG PHPMYADMIN_VERSION
-ARG WORDPRESS_VERSION
-
-# Install runtime dependencies for MariaDB
-# Reuse the same list as our previous Ubuntu 24.04 build
-RUN apt-get update && apt-get install -y \
-    libncurses6 \
-    libedit2 \
-    libaio1t64 \
-    liburing2 \
-    libssl-dev \
-    libstdc++6 \
-    zlib1g \
-    adduser \
-    tzdata \
+# Install OpenLiteSpeed from official repository
+RUN apt-get update \
+    && apt-get install -y wget curl ca-certificates \
+    && wget -O - https://repo.litespeed.sh | bash \
+    && apt-get update \
+    && apt-get install -y \
+        openlitespeed \
+        lsphp${LSPHP_VERSION} \
+        lsphp${LSPHP_VERSION}-common \
+        lsphp${LSPHP_VERSION}-mysql \
+        lsphp${LSPHP_VERSION}-curl \
+        lsphp${LSPHP_VERSION}-imagick \
+        lsphp${LSPHP_VERSION}-intl \
+        unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Create mysql user/group if they don't exist (OLS image usually runs as root but might have nobody/nogroup)
-RUN groupadd -r mysql && useradd -r -g mysql mysql
+# Configure OLS to use lsphp
+RUN ln -sf /usr/local/lsws/lsphp${LSPHP_VERSION}/bin/lsphp /usr/local/lsws/fcgi-bin/lsphp
 
-# Copy MariaDB files from source
-COPY --from=source /usr/sbin/mariadbd /usr/sbin/
-COPY --from=source /usr/bin/mariadb* /usr/bin/
-COPY --from=source /usr/bin/mysql* /usr/bin/
-COPY --from=source /usr/bin/my* /usr/bin/
-COPY --from=source /usr/bin/resolveip /usr/bin/
-COPY --from=source /usr/share/mariadb /usr/share/mariadb
-COPY --from=source /usr/lib/mysql /usr/lib/mysql
-COPY --from=source /etc/mysql /etc/mysql
+# Create web root directory
+RUN mkdir -p /var/www/vhosts/localhost/html \
+    && chown -R nobody:nogroup /var/www/vhosts/localhost/html
 
-# Setup directories and permissions
-RUN mkdir -p /var/lib/mysql /run/mysqld \
-    && chown -R mysql:mysql /var/lib/mysql /run/mysqld /etc/mysql
+# Configure OLS: change listener to port 80, update vhost docRoot, and set lsphp path
+RUN sed -i 's/address.*\*:8088/address                  *:80/' /usr/local/lsws/conf/httpd_config.conf \
+    && sed -i 's|path.*lsphp83/bin/lsphp|path                            lsphp84/bin/lsphp|' /usr/local/lsws/conf/httpd_config.conf \
+    && sed -i 's|vhRoot.*Example/|vhRoot                   /var/www/vhosts/localhost/|' /usr/local/lsws/conf/httpd_config.conf
 
-# Install phpMyAdmin to /usr/src (will be copied to webroot at runtime)
-RUN apt-get update && apt-get install -y wget unzip \
-    && wget https://files.phpmyadmin.net/phpMyAdmin/${PHPMYADMIN_VERSION}/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages.zip -O /tmp/phpmyadmin.zip \
+# Update Example vhost to use html as docRoot and add index.php to indexFiles
+RUN sed -i 's|docRoot.*\$VH_ROOT/html/|docRoot                  $VH_ROOT/html/|' /usr/local/lsws/conf/vhosts/Example/vhconf.conf 2>/dev/null || true \
+    && sed -i 's|indexFiles index.html|indexFiles index.php, index.html|' /usr/local/lsws/conf/vhosts/Example/vhconf.conf
+
+# Install phpMyAdmin
+RUN wget https://files.phpmyadmin.net/phpMyAdmin/${PHPMYADMIN_VERSION}/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages.zip -O /tmp/phpmyadmin.zip \
     && unzip /tmp/phpmyadmin.zip -d /usr/src/ \
     && mv /usr/src/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages /usr/src/phpmyadmin \
-    && rm /tmp/phpmyadmin.zip \
-    && apt-get remove -y wget unzip \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+    && rm /tmp/phpmyadmin.zip
 
-# Install WordPress to /usr/src (will be copied to webroot at runtime)
-RUN apt-get update && apt-get install -y wget unzip \
-    && if [ "$WORDPRESS_VERSION" = "latest" ]; then \
-         wget https://wordpress.org/latest.zip -O /tmp/wordpress.zip; \
-       else \
-         wget https://wordpress.org/wordpress-${WORDPRESS_VERSION}.zip -O /tmp/wordpress.zip; \
-       fi \
+# Install WordPress
+RUN if [ "$WORDPRESS_VERSION" = "latest" ]; then \
+        wget https://wordpress.org/latest.zip -O /tmp/wordpress.zip; \
+    else \
+        wget https://wordpress.org/wordpress-${WORDPRESS_VERSION}.zip -O /tmp/wordpress.zip; \
+    fi \
     && unzip /tmp/wordpress.zip -d /usr/src/ \
-    && rm /tmp/wordpress.zip \
-    && apt-get remove -y wget unzip \
+    && rm /tmp/wordpress.zip
+
+# Clean up wget/unzip (keep curl for healthchecks)
+RUN apt-get purge -y wget unzip \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-# Expose ports (OLS uses 7080/8088, MariaDB uses 3306)
-EXPOSE 7080 8088 3306
+# Expose ports
+EXPOSE 80 7080 3306
 
+# Copy scripts
+COPY entrypoint.sh /usr/local/bin/custom-entrypoint.sh
+COPY init-apps.sh /usr/local/bin/init-apps.sh
+RUN chmod +x /usr/local/bin/custom-entrypoint.sh /usr/local/bin/init-apps.sh
 
-
-# Copy initialization script
-COPY init-mariadb.sh /usr/local/bin/init-mariadb.sh
-RUN chmod +x /usr/local/bin/init-mariadb.sh
-
-# Inject MariaDB startup logic into the existing entrypoint
-# We match the line starting the litespeed controller and insert our logic before it.
-RUN sed -i '/^\/usr\/local\/lsws\/bin\/lswsctrl start/i /usr/local/bin/init-mariadb.sh' /entrypoint.sh
+# Set custom entrypoint
+ENTRYPOINT ["/usr/local/bin/custom-entrypoint.sh"]
+CMD ["mariadbd"]
