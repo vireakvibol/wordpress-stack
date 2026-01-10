@@ -41,14 +41,28 @@ docker run -d \
 
 ## Environment Variables
 
+### Database Configuration
+
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MARIADB_ROOT_PASSWORD` | Root password for MariaDB | *Random 32-char* |
-| `MARIADB_DATABASE` | Database to create on startup | - |
-| `MARIADB_USER` | Additional user to create | - |
-| `MARIADB_PASSWORD` | Password for the additional user | - |
+| `MARIADB_DATABASE` | Database to create on startup | **Required** |
+| `MARIADB_USER` | Database user to create | **Required** |
+| `MARIADB_PASSWORD` | Password for the database user | **Required** |
 
 > **Note:** If `MARIADB_ROOT_PASSWORD` is not set, a random password is generated and printed to the container logs on first startup.
+
+### WordPress Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `WORDPRESS_URL` | Site URL (include port if non-standard) | `http://localhost` |
+| `WORDPRESS_TITLE` | Site title | `Docker WordPress` |
+| `WORDPRESS_ADMIN_USER` | Admin username | `admin` |
+| `WORDPRESS_ADMIN_PASSWORD` | Admin password | `password` |
+| `WORDPRESS_ADMIN_EMAIL` | Admin email | `admin@example.com` |
+
+> **Smart URL Handling:** If you provide a URL without a protocol (e.g., `localhost:8080`), `http://` is automatically prepended.
 
 ## Access Points
 
@@ -85,6 +99,31 @@ docker build \
 | `MARIADB_VERSION` | `11.8` | MariaDB version |
 | `PHPMYADMIN_VERSION` | `5.2.1` | phpMyAdmin version |
 | `WORDPRESS_VERSION` | `latest` | WordPress version |
+| `WORDPRESS_PLUGINS` | *(none)* | Pre-installed plugins (optional) |
+
+### Configurable Plugins
+
+Optionally pre-install WordPress plugins at build time with protection settings:
+
+```bash
+docker build \
+  --build-arg WORDPRESS_PLUGINS="litespeed-cache:ro,contact-form-7:rw,wordfence:ro" \
+  -t wordpress-stack:custom .
+```
+
+**Format:** `plugin-slug:permission` (comma-separated)
+
+| Suffix | Permission | Description |
+|--------|------------|-------------|
+| `:ro` | Read-only | Protected from deletion via WordPress dashboard |
+| `:rw` | Read-write | Normal behavior (default if no suffix) |
+
+**Examples:**
+- `litespeed-cache:ro` - Install and protect from deletion
+- `contact-form-7:rw` - Install with normal permissions
+- `akismet` - Same as `akismet:rw`
+
+> **Note:** If `WORDPRESS_PLUGINS` is not specified, no additional plugins are pre-installed. WordPress comes with its default plugins (`Hello Dolly`, `Akismet`) which remain inactive.
 
 ## Persistent Data
 

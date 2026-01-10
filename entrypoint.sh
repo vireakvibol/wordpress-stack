@@ -6,6 +6,27 @@ set -e
 
 echo "=== WordPress Stack Starting ==="
 
+# Validate required environment variables
+MISSING_VARS=""
+[ -z "$MARIADB_DATABASE" ] && MISSING_VARS="$MISSING_VARS MARIADB_DATABASE"
+[ -z "$MARIADB_USER" ] && MISSING_VARS="$MISSING_VARS MARIADB_USER"
+[ -z "$MARIADB_PASSWORD" ] && MISSING_VARS="$MISSING_VARS MARIADB_PASSWORD"
+
+if [ -n "$MISSING_VARS" ]; then
+    echo "ERROR: Required environment variables are not set:$MISSING_VARS"
+    echo "Please provide:"
+    echo "  -e MARIADB_DATABASE=your_database"
+    echo "  -e MARIADB_USER=your_user"
+    echo "  -e MARIADB_PASSWORD=your_password"
+    exit 1
+fi
+
+# Generate random root password if not set (and not allowing empty)
+if [ -z "$MARIADB_ROOT_PASSWORD" ] && [ -z "$MARIADB_ALLOW_EMPTY_ROOT_PASSWORD" ] && [ -z "$MARIADB_RANDOM_ROOT_PASSWORD" ]; then
+    export MARIADB_ROOT_PASSWORD=$(openssl rand -hex 16)
+    echo "GENERATED ROOT PASSWORD: $MARIADB_ROOT_PASSWORD"
+fi
+
 # Deploy phpMyAdmin if not present
 if [ ! -d "/var/www/vhosts/localhost/html/phpmyadmin" ] && [ -d "/usr/src/phpmyadmin" ]; then
     echo "Deploying phpMyAdmin..."
@@ -25,10 +46,10 @@ echo "Starting MariaDB..."
 docker-entrypoint.sh "$@" &
 MARIADB_PID=$!
 
-# Wait for MariaDB to be ready
+# Wait for MariaDB to be ready (wait for TCP connection to ensure real server is up, not temp)
 echo "Waiting for MariaDB to be ready..."
 for i in {1..60}; do
-    if mariadb-admin ping --silent 2>/dev/null; then
+    if mariadb-admin ping -h 127.0.0.1 --silent 2>/dev/null; then
         echo "MariaDB is ready!"
         break
     fi

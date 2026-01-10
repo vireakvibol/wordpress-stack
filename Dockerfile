@@ -3,6 +3,8 @@ ARG MARIADB_VERSION=11.8
 
 FROM mariadb:${MARIADB_VERSION}
 
+
+
 # Re-declare ARGs after FROM
 ARG LSPHP_VERSION=84
 ARG PHPMYADMIN_VERSION=5.2.1
@@ -54,6 +56,29 @@ RUN if [ "$WORDPRESS_VERSION" = "latest" ]; then \
     fi \
     && unzip /tmp/wordpress.zip -d /usr/src/ \
     && rm /tmp/wordpress.zip
+
+# Install PHP CLI for WP-CLI (LSPHP is LSAPI-only)
+RUN apt-get update && apt-get install -y php-cli php-mysql php-mbstring php-curl php-xml php-zip
+
+# Install WP-CLI
+RUN wget -nv https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -O /usr/local/bin/wp \
+    && chmod +x /usr/local/bin/wp
+
+# Pre-install plugins (format: "plugin1:ro,plugin2:rw" - :ro = readonly, :rw = readwrite)
+# No plugins installed by default. Override with --build-arg WORDPRESS_PLUGINS="..."
+ARG WORDPRESS_PLUGINS=""
+# Store raw config for init-apps.sh to apply permissions later
+ENV WORDPRESS_PLUGINS_CONFIG="${WORDPRESS_PLUGINS}"
+RUN if [ -n "$WORDPRESS_PLUGINS" ]; then \
+        echo "$WORDPRESS_PLUGINS" | tr ',' '\n' | while read plugin_entry; do \
+            plugin_name=$(echo "$plugin_entry" | sed 's/:ro$//' | sed 's/:rw$//'); \
+            if [ -n "$plugin_name" ]; then \
+                wget -nv -O /tmp/plugin.zip "https://downloads.wordpress.org/plugin/${plugin_name}.zip" \
+                && unzip -q /tmp/plugin.zip -d /usr/src/wordpress/wp-content/plugins/ \
+                && rm /tmp/plugin.zip; \
+            fi; \
+        done; \
+    fi
 
 # Clean up wget/unzip (keep curl for healthchecks)
 RUN apt-get purge -y wget unzip \

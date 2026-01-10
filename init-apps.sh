@@ -38,3 +38,60 @@ if [ ! -f "$WP_CONFIG" ] && [ -f "$WP_CONFIG_SAMPLE" ] && [ -n "$MARIADB_DATABAS
     
     echo "WordPress configured with database: $DB_NAME, user: $DB_USER"
 fi
+
+# Install WordPress core if not already installed (creates admin user)
+if [ -f "$WP_CONFIG" ] && ! wp core is-installed --path=/var/www/vhosts/localhost/html --allow-root 2>/dev/null; then
+    echo "Installing WordPress Core..."
+    
+    # Sanitize WORDPRESS_URL: Ensure it has a protocol
+    WP_URL="${WORDPRESS_URL:-http://localhost}"
+    if [[ "$WP_URL" != http* ]]; then
+        WP_URL="http://$WP_URL"
+    fi
+    
+    wp core install \
+        --url="$WP_URL" \
+        --title="${WORDPRESS_TITLE:-Docker WordPress}" \
+        --admin_user="${WORDPRESS_ADMIN_USER:-admin}" \
+        --admin_password="${WORDPRESS_ADMIN_PASSWORD:-password}" \
+        --admin_email="${WORDPRESS_ADMIN_EMAIL:-admin@example.com}" \
+        --path=/var/www/vhosts/localhost/html \
+        --allow-root
+        
+    echo "WordPress installed successfully."
+    echo "Site URL: $WP_URL"
+    echo "Admin User: ${WORDPRESS_ADMIN_USER:-admin}"
+    echo "Admin Password: ${WORDPRESS_ADMIN_PASSWORD:-password}"
+fi
+
+# Activate all plugins except defaults (hello, akismet) individually for robustness
+if [ -f "$WP_CONFIG" ]; then
+    echo "Activating plugins..."
+    # Get all inactive plugins and activate them, skipping defaults
+    INACTIVE_PLUGINS=$(wp plugin list --status=inactive --field=name --path=/var/www/vhosts/localhost/html --allow-root)
+    for plugin in $INACTIVE_PLUGINS; do
+        # Skip default plugins explicitly
+        if [ "$plugin" = "hello" ] || [ "$plugin" = "akismet" ]; then
+             continue
+        fi
+
+        echo "Activating plugin: $plugin"
+        wp plugin activate "$plugin" --path=/var/www/vhosts/localhost/html --allow-root || echo "Warning: Failed to activate $plugin"
+    done
+fi
+
+# Protect plugins marked as :ro (readonly) from deletion
+PLUGIN_DIR="/var/www/vhosts/localhost/html/wp-content/plugins"
+if [ -n "$WORDPRESS_PLUGINS_CONFIG" ]; then
+    echo "$WORDPRESS_PLUGINS_CONFIG" | tr ',' '\n' | while read plugin_entry; do
+        # Check if plugin is marked as readonly (:ro)
+        if echo "$plugin_entry" | grep -q ':ro$'; then
+            plugin_name=$(echo "$plugin_entry" | sed 's/:ro$//')
+            if [ -d "$PLUGIN_DIR/$plugin_name" ]; then
+                echo "Protecting plugin (readonly): $plugin_name"
+                chown -R root:root "$PLUGIN_DIR/$plugin_name"
+                chmod -R 755 "$PLUGIN_DIR/$plugin_name"
+            fi
+        fi
+    done
+fi
