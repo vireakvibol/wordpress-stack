@@ -64,14 +64,13 @@ RUN apt-get update && apt-get install -y php-cli php-mysql php-mbstring php-curl
 RUN wget -nv https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -O /usr/local/bin/wp \
     && chmod +x /usr/local/bin/wp
 
-# Pre-install plugins (format: "plugin1:ro,plugin2:rw" - :ro = readonly, :rw = readwrite)
+# Pre-install plugins (format: "plugin1,plugin2")
 # No plugins installed by default. Override with --build-arg WORDPRESS_PLUGINS="..."
 ARG WORDPRESS_PLUGINS=""
-# Store raw config for init-apps.sh to apply permissions later
-ENV WORDPRESS_PLUGINS_CONFIG="${WORDPRESS_PLUGINS}"
 RUN if [ -n "$WORDPRESS_PLUGINS" ]; then \
-        echo "$WORDPRESS_PLUGINS" | tr ',' '\n' | while read plugin_entry; do \
-            plugin_name=$(echo "$plugin_entry" | sed 's/:ro$//' | sed 's/:rw$//'); \
+        echo "$WORDPRESS_PLUGINS" | tr ',' '\n' | while read plugin_name; do \
+            # Backward compatibility: strip :ro/:rw if present (user might still use old format)
+            plugin_name=$(echo "$plugin_name" | sed 's/:ro$//' | sed 's/:rw$//'); \
             if [ -n "$plugin_name" ]; then \
                 wget -nv -O /tmp/plugin.zip "https://downloads.wordpress.org/plugin/${plugin_name}.zip" \
                 && unzip -q /tmp/plugin.zip -d /usr/src/wordpress/wp-content/plugins/ \

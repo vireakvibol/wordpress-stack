@@ -101,29 +101,24 @@ docker build \
 | `WORDPRESS_VERSION` | `latest` | WordPress version |
 | `WORDPRESS_PLUGINS` | *(none)* | Pre-installed plugins (optional) |
 
-### Configurable Plugins
+### Pre-installing Plugins (Optional)
 
-Optionally pre-install WordPress plugins at build time with protection settings:
+You can pre-install WordPress plugins during the build process using the `WORDPRESS_PLUGINS` build argument.
 
+**Format:** A comma-separated list of plugin slugs (as found in the WordPress.org plugin directory URL).
+
+**Example:**
 ```bash
 docker build \
-  --build-arg WORDPRESS_PLUGINS="litespeed-cache:ro,contact-form-7:rw,wordfence:ro" \
-  -t wordpress-stack:custom .
+  --build-arg WORDPRESS_PLUGINS="litespeed-cache,contact-form-7,yoast-seo" \
+  ...
 ```
 
-**Format:** `plugin-slug:permission` (comma-separated)
-
-| Suffix | Permission | Description |
-|--------|------------|-------------|
-| `:ro` | Read-only | Protected from deletion via WordPress dashboard |
-| `:rw` | Read-write | Normal behavior (default if no suffix) |
-
-**Examples:**
-- `litespeed-cache:ro` - Install and protect from deletion
-- `contact-form-7:rw` - Install with normal permissions
-- `akismet` - Same as `akismet:rw`
-
-> **Note:** If `WORDPRESS_PLUGINS` is not specified, no additional plugins are pre-installed. WordPress comes with its default plugins (`Hello Dolly`, `Akismet`) which remain inactive.
+**Behavior:**
+- Plugins are downloaded from WordPress.org.
+- They are unzipped into the `wp-content/plugins` directory.
+- Permission management is handled globally by `WORDPRESS_READONLY` (see below).
+- **Note:** By default, no plugins are installed (`WORDPRESS_PLUGINS=""`). Be sure to specify any desired plugins, including LiteSpeed Cache.
 
 ## Persistent Data
 

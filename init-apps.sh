@@ -79,23 +79,7 @@ if [ -f "$WP_CONFIG" ]; then
     done
 fi
 
-# Protect plugins marked as :ro (readonly) from deletion
-PLUGIN_DIR="/var/www/vhosts/localhost/html/wp-content/plugins"
-if [ -n "$WORDPRESS_PLUGINS_CONFIG" ]; then
-    echo "$WORDPRESS_PLUGINS_CONFIG" | tr ',' '\n' | while read plugin_entry; do
-        # Check if plugin is marked as readonly (:ro)
-        if echo "$plugin_entry" | grep -q ':ro$'; then
-            plugin_name=$(echo "$plugin_entry" | sed 's/:ro$//')
-            if [ -d "$PLUGIN_DIR/$plugin_name" ]; then
-                echo "Protecting plugin (readonly): $plugin_name"
-                chown -R root:root "$PLUGIN_DIR/$plugin_name"
-                chmod -R 755 "$PLUGIN_DIR/$plugin_name"
-            fi
-        fi
-    done
-fi
 
-# Apply Runtime Read-Only Mode if requested
 # Defaults to 0 (Normal mode)
 if [ "$WORDPRESS_READONLY" = "1" ]; then
     echo "Enforcing Runtime Read-Only Mode (Files: 444, Dirs: 555)..."
@@ -103,11 +87,19 @@ if [ "$WORDPRESS_READONLY" = "1" ]; then
     # Target: Web Root
     WEB_ROOT="/var/www/vhosts/localhost/html"
     
-    # Exclude wp-content from locking to allow uploads/updates in volume
-    find "$WEB_ROOT" -path "$WEB_ROOT/wp-content" -prune -o -type d -exec chmod 555 {} +
-    find "$WEB_ROOT" -path "$WEB_ROOT/wp-content" -prune -o -type f -exec chmod 444 {} +
+    # Exclude wp-content/uploads ONLY (Plugins/Themes will be Read-Only)
+    # Note: wp-config.php usually sits in root (RO) or wp-content (now RO).
+    # If wp-config.php is in wp-content, it will become RO (good for security, bad for runtime editing)
     
-    echo "Read-Only Mode applied (wp-content excluded)."
+    # Critical: Ensure uploads directory exists and is owned by nobody BEFORE locking parent
+    # If we don't do this, 555 parent (wp-content) will prevent creation of uploads later.
+    mkdir -p "$WEB_ROOT/wp-content/uploads"
+    chown nobody:nogroup "$WEB_ROOT/wp-content/uploads"
+    
+    find "$WEB_ROOT" -path "$WEB_ROOT/wp-content/uploads" -prune -o -type d -exec chmod 555 {} +
+    find "$WEB_ROOT" -path "$WEB_ROOT/wp-content/uploads" -prune -o -type f -exec chmod 444 {} +
+    
+    echo "Read-Only Mode applied (Only wp-content/uploads excluded)."
 else
     echo "Ensuring Normal Permission Mode (Files: 644, Dirs: 755)..."
     WEB_ROOT="/var/www/vhosts/localhost/html"
