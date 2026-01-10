@@ -11,7 +11,7 @@ ARG WORDPRESS_VERSION=latest
 # Install OpenLiteSpeed from official repository
 RUN apt-get update \
     && apt-get install -y wget curl ca-certificates \
-    && wget -O - https://repo.litespeed.sh | bash \
+    && wget -nv -O - https://repo.litespeed.sh | bash \
     && apt-get update \
     && apt-get install -y \
         openlitespeed \
@@ -41,16 +41,16 @@ RUN sed -i 's|docRoot.*\$VH_ROOT/html/|docRoot                  $VH_ROOT/html/|'
     && sed -i 's|indexFiles index.html|indexFiles index.php, index.html|' /usr/local/lsws/conf/vhosts/Example/vhconf.conf
 
 # Install phpMyAdmin
-RUN wget https://files.phpmyadmin.net/phpMyAdmin/${PHPMYADMIN_VERSION}/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages.zip -O /tmp/phpmyadmin.zip \
+RUN wget -nv https://files.phpmyadmin.net/phpMyAdmin/${PHPMYADMIN_VERSION}/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages.zip -O /tmp/phpmyadmin.zip \
     && unzip /tmp/phpmyadmin.zip -d /usr/src/ \
     && mv /usr/src/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages /usr/src/phpmyadmin \
     && rm /tmp/phpmyadmin.zip
 
 # Install WordPress
 RUN if [ "$WORDPRESS_VERSION" = "latest" ]; then \
-        wget https://wordpress.org/latest.zip -O /tmp/wordpress.zip; \
+        wget -nv https://wordpress.org/latest.zip -O /tmp/wordpress.zip; \
     else \
-        wget https://wordpress.org/wordpress-${WORDPRESS_VERSION}.zip -O /tmp/wordpress.zip; \
+        wget -nv https://wordpress.org/wordpress-${WORDPRESS_VERSION}.zip -O /tmp/wordpress.zip; \
     fi \
     && unzip /tmp/wordpress.zip -d /usr/src/ \
     && rm /tmp/wordpress.zip
