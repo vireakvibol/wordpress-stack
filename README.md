@@ -142,6 +142,20 @@ docker run -d \
   ghcr.io/vireakvibol/wordpress-stack:main
 ```
 
+## Runtime Environment Variables
+
+### Read-Only Mode (Permission Locking)
+To harden security at runtime (Software-enforced Read-Only), set `WORDPRESS_READONLY=1`.
+- **Enabled (`1`)**: Sets all files in webroot to `444` (Read-Only) and directories to `555` (Read-Execute).
+- **Disabled (`0`)**: Resets permissions to `644` (Files) and `755` (Directories) with ownership `nobody:nogroup`.
+
+```bash
+docker run -d -e WORDPRESS_READONLY=1 ...
+```
+
+> **Note:** This prevents **any** file modifications by WordPress (including plugin updates and uploads) unless you mount a writable volume for specific paths (e.g., `wp-content`) **AND** ensuring that volume permits writing despite the global permission change (Docker permissions can be tricky here; if `init-apps.sh` sets parent recursively, it might affect volumes mounted underneath if applied post-mount).
+> *Actually, chmod on the mount point affects the volume root.*
+
 ## Security Considerations
 
 - **Change default passwords** - Always set `MARIADB_ROOT_PASSWORD` in production

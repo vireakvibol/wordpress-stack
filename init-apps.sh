@@ -94,3 +94,29 @@ if [ -n "$WORDPRESS_PLUGINS_CONFIG" ]; then
         fi
     done
 fi
+
+# Apply Runtime Read-Only Mode if requested
+# Defaults to 0 (Normal mode)
+if [ "$WORDPRESS_READONLY" = "1" ]; then
+    echo "Enforcing Runtime Read-Only Mode (Files: 444, Dirs: 555)..."
+    # Recursive chmod is skipped in favor of find to separate files/dirs
+    # Target: Web Root
+    WEB_ROOT="/var/www/vhosts/localhost/html"
+    
+    find "$WEB_ROOT" -type d -exec chmod 555 {} +
+    find "$WEB_ROOT" -type f -exec chmod 444 {} +
+    
+    echo "Read-Only Mode applied."
+else
+    echo "Ensuring Normal Permission Mode (Files: 644, Dirs: 755)..."
+    WEB_ROOT="/var/www/vhosts/localhost/html"
+    
+    # Restore write permissions for owner (nobody)
+    find "$WEB_ROOT" -type d -exec chmod 755 {} +
+    find "$WEB_ROOT" -type f -exec chmod 644 {} +
+    
+    # Ensure ownership is correct (in case it was messed up)
+    chown -R nobody:nogroup "$WEB_ROOT"
+    
+    echo "Normal Permission Mode applied."
+fi
