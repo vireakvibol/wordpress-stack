@@ -1,7 +1,14 @@
 #!/bin/bash
 # init-apps.sh - Configure WordPress wp-config.php with database credentials
 
-WP_CONFIG="/var/www/vhosts/localhost/html/wp-config.php"
+# Resolve real path in case of symlink (ReadOnly support)
+WP_CONFIG_SYMLINK="/var/www/vhosts/localhost/html/wp-config.php"
+if [ -L "$WP_CONFIG_SYMLINK" ]; then
+    WP_CONFIG=$(readlink -f "$WP_CONFIG_SYMLINK")
+else
+    WP_CONFIG="$WP_CONFIG_SYMLINK"
+fi
+
 WP_CONFIG_SAMPLE="/var/www/vhosts/localhost/html/wp-config-sample.php"
 
 # Configure wp-config.php if database credentials are provided
