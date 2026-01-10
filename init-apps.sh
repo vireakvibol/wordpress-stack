@@ -103,10 +103,11 @@ if [ "$WORDPRESS_READONLY" = "1" ]; then
     # Target: Web Root
     WEB_ROOT="/var/www/vhosts/localhost/html"
     
-    find "$WEB_ROOT" -type d -exec chmod 555 {} +
-    find "$WEB_ROOT" -type f -exec chmod 444 {} +
+    # Exclude wp-content from locking to allow uploads/updates in volume
+    find "$WEB_ROOT" -path "$WEB_ROOT/wp-content" -prune -o -type d -exec chmod 555 {} +
+    find "$WEB_ROOT" -path "$WEB_ROOT/wp-content" -prune -o -type f -exec chmod 444 {} +
     
-    echo "Read-Only Mode applied."
+    echo "Read-Only Mode applied (wp-content excluded)."
 else
     echo "Ensuring Normal Permission Mode (Files: 644, Dirs: 755)..."
     WEB_ROOT="/var/www/vhosts/localhost/html"
