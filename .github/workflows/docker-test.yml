@@ -46,8 +46,11 @@ jobs:
           -e MARIADB_PASSWORD=wp_pass \
           wordpress-stack:test-${{ matrix.arch }}
         
-        echo "Waiting for container initialization..."
-        sleep 30
+        echo "Waiting for container initialization (delayed for QEMU)..."
+        sleep 60
+        
+        # Show running processes
+        docker exec test-container ps aux || true
 
     - name: Inspect container logs (if failed)
       if: failure()
@@ -55,13 +58,23 @@ jobs:
 
     - name: "Test 2: Check OLS Admin Console"
       run: |
-        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:7080/)
-        echo "OLS Admin Response: $HTTP_CODE"
-        if [[ "$HTTP_CODE" -ne 200 ]] && [[ "$HTTP_CODE" -ne 301 ]] && [[ "$HTTP_CODE" -ne 302 ]]; then
-          echo "FAIL: OLS Admin not accessible (Code $HTTP_CODE)"
-          exit 1
-        fi
-        echo "PASS: OpenLiteSpeed Admin is running"
+        echo "Checking OLS Admin availability..."
+        for i in {1..10}; do
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:7080/ || echo "000")
+          echo "Attempt $i: OLS Admin Response: $HTTP_CODE"
+          
+          if [[ "$HTTP_CODE" == "200" ]] || [[ "$HTTP_CODE" == "301" ]] || [[ "$HTTP_CODE" == "302" ]]; then
+            echo "PASS: OpenLiteSpeed Admin is running"
+            exit 0
+          fi
+          
+          # If curl failed with connection error (000), wait longer
+          sleep 10
+        done
+        
+        echo "FAIL: OLS Admin not accessible after retries"
+        docker logs test-container
+        exit 1
 
     - name: "Test 3: Check WordPress"
       run: |
