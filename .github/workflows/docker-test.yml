@@ -9,15 +9,33 @@ on:
 
 jobs:
   test:
-    name: Build and Test
+    name: Build and Test (${{ matrix.platform }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+          - platform: linux/arm64
+            arch: arm64
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Build Docker image
-      run: docker build -t wordpress-stack:test .
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image (${{ matrix.arch }})
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: ${{ matrix.platform }}
+        load: true
+        tags: wordpress-stack:test-${{ matrix.arch }}
 
     - name: "Test 1: Run container"
       run: |
@@ -26,7 +44,7 @@ jobs:
           -e MARIADB_DATABASE=wordpress \
           -e MARIADB_USER=wp_user \
           -e MARIADB_PASSWORD=wp_pass \
-          wordpress-stack:test
+          wordpress-stack:test-${{ matrix.arch }}
         
         echo "Waiting for container initialization..."
         sleep 30
@@ -111,8 +129,12 @@ jobs:
         fi
         echo "PASS: phpMyAdmin is accessible"
 
+    - name: Cleanup
+      if: always()
+      run: docker rm -f test-container || true
+
   deploy:
-    name: Push to Registry
+    name: Push Multi-Arch to Registry
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push'
@@ -121,8 +143,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Build Docker image
-      run: docker build -t wordpress-stack:latest .
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
     - name: Log in to GitHub Container Registry
       uses: docker/login-action@v3
@@ -131,9 +156,10 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Tag and Push to GHCR
-      run: |
-        IMAGE_NAME=ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-        docker tag wordpress-stack:latest $IMAGE_NAME
-        docker push $IMAGE_NAME
-        echo "Pushed image: $IMAGE_NAME"
+    - name: Build and Push Multi-Arch Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
