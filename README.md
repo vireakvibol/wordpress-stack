@@ -146,15 +146,15 @@ docker run -d \
 
 ### Read-Only Mode (Permission Locking)
 To harden security at runtime (Software-enforced Read-Only), set `WORDPRESS_READONLY=1`.
-- **Enabled (`1`)**: Sets all files in webroot to `444` (Read-Only) and directories to `555` (Read-Execute).
+- **Enabled (`1`)**: Sets webroot and `wp-content` (including plugins/themes) to **Read-Only** (Files: `444`, Dirs: `555`).
+- **Exception**: `wp-content/uploads` remains **Writable** (Standard permissions) to allow media uploads.
 - **Disabled (`0`)**: Resets permissions to `644` (Files) and `755` (Directories) with ownership `nobody:nogroup`.
 
 ```bash
 docker run -d -e WORDPRESS_READONLY=1 ...
 ```
 
-> **Note:** This prevents **any** file modifications by WordPress (including plugin updates and uploads) unless you mount a writable volume for specific paths (e.g., `wp-content`) **AND** ensuring that volume permits writing despite the global permission change (Docker permissions can be tricky here; if `init-apps.sh` sets parent recursively, it might affect volumes mounted underneath if applied post-mount).
-> *Actually, chmod on the mount point affects the volume root.*
+> **Note:** When enabled, you cannot install/update plugins or themes via the WordPress Dashboard. You must disable Read-Only mode (`WORDPRESS_READONLY=0`) or use an external volume management strategy to update code.
 
 ## Security Considerations
 
