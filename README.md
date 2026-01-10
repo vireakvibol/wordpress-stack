@@ -127,51 +127,20 @@ docker build \
 
 ## Persistent Data
 
-For data persistence and plugin/theme storage, mount the following volumes:
+Mount volumes to persist data:
 
 ```bash
 docker run -d \
   -p 80:80 \
   -p 7080:7080 \
-  -v mariadb_data:/var/lib/mysql \
-  -v wp_content:/var/www/vhosts/localhost/html/wp-content \
+  -v wordpress_db:/var/lib/mysql \
+  -v wordpress_html:/var/www/vhosts/localhost/html \
   -e MARIADB_ROOT_PASSWORD=secret \
   -e MARIADB_DATABASE=wordpress \
   -e MARIADB_USER=wp_user \
   -e MARIADB_PASSWORD=wp_pass \
   ghcr.io/vireakvibol/wordpress-stack:main
 ```
-
-| Path | Description | Recommended Volume Type |
-|------|-------------|-------------------------|
-| `/var/lib/mysql` | Database data | Named Volume |
-| `/var/www/vhosts/localhost/html/wp-content` | Plugins, Themes, Uploads, Config | Named Volume |
-
-**Note:** The container automatically populates `wp-content` with default/pre-installed plugins on the first run if the volume is empty.
-
-### Experimental: Read-Only Mode
-
-This image is designed to support running with a read-only root filesystem for enhanced security.
-
-**Required Flags:**
-```bash
-docker run -d \
-  --read-only \
-  --tmpfs /tmp \
-  --tmpfs /run \
-  --tmpfs /usr/local/lsws/conf \
-  --tmpfs /usr/local/lsws/admin/conf \
-  --tmpfs /usr/local/lsws/logs \
-  -v mariadb_data:/var/lib/mysql \
-  -v wp_content:/var/www/vhosts/localhost/html/wp-content \
-  -p 80:80 \
-  ...
-```
-
-**How it works:**
-1.  **Core Files**: WordPress core is baked into the read-only image at `/var/www/vhosts/localhost/html`.
-2.  **Config**: `wp-config.php` is a symlink pointing to `wp-content/wp-config.php` (which lives on the writable volume).
-3.  **Content**: Plugins and uploads live on the writable `wp-content` volume.
 
 ## Security Considerations
 

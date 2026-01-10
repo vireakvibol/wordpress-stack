@@ -27,16 +27,18 @@ if [ -z "$MARIADB_ROOT_PASSWORD" ] && [ -z "$MARIADB_ALLOW_EMPTY_ROOT_PASSWORD" 
     echo "GENERATED ROOT PASSWORD: $MARIADB_ROOT_PASSWORD"
 fi
 
-# Check if wp-content is an empty volume (missing plugins/themes) and populate from image backup
-if [ -d "/usr/src/wordpress/wp-content" ]; then
-    if [ ! -d "/var/www/vhosts/localhost/html/wp-content/plugins" ] || [ -z "$(ls -A /var/www/vhosts/localhost/html/wp-content/plugins)" ]; then
-        echo "Populating wp-content volume from image backup..."
-        # Copy plugins and themes. Use -n to not overwrite if exists? No, cp -r merges.
-        cp -rn /usr/src/wordpress/wp-content/* /var/www/vhosts/localhost/html/wp-content/
-        
-        # Ensure permissions
-        chown -R nobody:nogroup /var/www/vhosts/localhost/html/wp-content
-    fi
+# Deploy phpMyAdmin if not present
+if [ ! -d "/var/www/vhosts/localhost/html/phpmyadmin" ] && [ -d "/usr/src/phpmyadmin" ]; then
+    echo "Deploying phpMyAdmin..."
+    cp -r /usr/src/phpmyadmin /var/www/vhosts/localhost/html/
+    chown -R nobody:nogroup /var/www/vhosts/localhost/html/phpmyadmin
+fi
+
+# Deploy WordPress if not present
+if [ ! -f "/var/www/vhosts/localhost/html/wp-settings.php" ] && [ -d "/usr/src/wordpress" ]; then
+    echo "Deploying WordPress..."
+    cp -r /usr/src/wordpress/* /var/www/vhosts/localhost/html/
+    chown -R nobody:nogroup /var/www/vhosts/localhost/html/
 fi
 
 # Start MariaDB in background using original entrypoint

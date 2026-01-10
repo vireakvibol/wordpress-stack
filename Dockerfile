@@ -44,23 +44,18 @@ RUN sed -i 's|docRoot.*\$VH_ROOT/html/|docRoot                  $VH_ROOT/html/|'
 
 # Install phpMyAdmin
 RUN wget -nv https://files.phpmyadmin.net/phpMyAdmin/${PHPMYADMIN_VERSION}/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages.zip -O /tmp/phpmyadmin.zip \
-    && unzip -q /tmp/phpmyadmin.zip -d /var/www/vhosts/localhost/html/ \
-    && mv /var/www/vhosts/localhost/html/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages /var/www/vhosts/localhost/html/phpmyadmin \
+    && unzip /tmp/phpmyadmin.zip -d /usr/src/ \
+    && mv /usr/src/phpMyAdmin-${PHPMYADMIN_VERSION}-all-languages /usr/src/phpmyadmin \
     && rm /tmp/phpmyadmin.zip
 
-# Install WordPress directly to DocRoot
+# Install WordPress
 RUN if [ "$WORDPRESS_VERSION" = "latest" ]; then \
         wget -nv https://wordpress.org/latest.zip -O /tmp/wordpress.zip; \
     else \
         wget -nv https://wordpress.org/wordpress-${WORDPRESS_VERSION}.zip -O /tmp/wordpress.zip; \
     fi \
-    && unzip -q /tmp/wordpress.zip -d /var/www/vhosts/localhost/html/ \
-    && mv /var/www/vhosts/localhost/html/wordpress/* /var/www/vhosts/localhost/html/ \
-    && rmdir /var/www/vhosts/localhost/html/wordpress \
+    && unzip /tmp/wordpress.zip -d /usr/src/ \
     && rm /tmp/wordpress.zip
-
-# Create symlink for wp-config.php to allow it to live in writable wp-content (for Read-Only root)
-RUN ln -s /var/www/vhosts/localhost/html/wp-content/wp-config.php /var/www/vhosts/localhost/html/wp-config.php
 
 # Install PHP CLI for WP-CLI (LSPHP is LSAPI-only)
 RUN apt-get update && apt-get install -y php-cli php-mysql php-mbstring php-curl php-xml php-zip
@@ -79,15 +74,11 @@ RUN if [ -n "$WORDPRESS_PLUGINS" ]; then \
             plugin_name=$(echo "$plugin_entry" | sed 's/:ro$//' | sed 's/:rw$//'); \
             if [ -n "$plugin_name" ]; then \
                 wget -nv -O /tmp/plugin.zip "https://downloads.wordpress.org/plugin/${plugin_name}.zip" \
-                && unzip -q /tmp/plugin.zip -d /var/www/vhosts/localhost/html/wp-content/plugins/ \
+                && unzip -q /tmp/plugin.zip -d /usr/src/wordpress/wp-content/plugins/ \
                 && rm /tmp/plugin.zip; \
             fi; \
         done; \
     fi
-
-# Create backup of wp-content for volume initialization (Read-Only support)
-RUN mkdir -p /usr/src/wordpress \
-    && cp -r /var/www/vhosts/localhost/html/wp-content /usr/src/wordpress/
 
 # Clean up wget/unzip (keep curl for healthchecks)
 RUN apt-get purge -y wget unzip \
