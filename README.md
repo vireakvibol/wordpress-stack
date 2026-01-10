@@ -1,6 +1,10 @@
 # WordPress Stack
 
-[![Build and Test](https://github.com/vireakvibol/mariadb-docker/actions/workflows/docker-test.yml/badge.svg)](https://github.com/vireakvibol/mariadb-docker/actions/workflows/docker-test.yml)
+[![Build and Test](https://github.com/vireakvibol/wordpress-stack/actions/workflows/docker-test.yml/badge.svg)](https://github.com/vireakvibol/wordpress-stack/actions/workflows/docker-test.yml)
+[![CodeFactor](https://www.codefactor.io/repository/github/vireakvibol/wordpress-stack/badge)](https://www.codefactor.io/repository/github/vireakvibol/wordpress-stack)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://ghcr.io/vireakvibol/wordpress-stack)
+[![Version](https://img.shields.io/github/v/tag/vireakvibol/wordpress-stack?label=version)](https://github.com/vireakvibol/wordpress-stack/releases)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 A production-ready, all-in-one Docker image combining **OpenLiteSpeed**, **MariaDB**, **WordPress**, and **phpMyAdmin** in a single container.
 
@@ -105,4 +109,20 @@ docker run -d \
 
 ## License
 
-MIT License
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+
+See [LICENSE](LICENSE) for details.
+
+### Bundled Components
+
+This Docker image includes the following open-source software, each under its own license:
+
+| Component | Version | License | Website |
+|-----------|---------|---------|---------|
+| MariaDB | 11.8 | GPL-2.0 | [mariadb.org](https://mariadb.org/) |
+| OpenLiteSpeed | 1.8.x | GPL-3.0 | [openlitespeed.org](https://openlitespeed.org/) |
+| WordPress | Latest | GPL-2.0+ | [wordpress.org](https://wordpress.org/) |
+| phpMyAdmin | 5.2.x | GPL-2.0+ | [phpmyadmin.net](https://www.phpmyadmin.net/) |
+| LSPHP | 8.4 | PHP License | [php.net](https://www.php.net/) |
+
+> **Note:** The AGPL-3.0 license applies to the orchestration code in this repository (Dockerfile, scripts, workflows). Bundled software retains its original license.
